@@ -3,3 +3,4 @@
 secrets.py
 *.log
 *.csv
+fplbot.db
