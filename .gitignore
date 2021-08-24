@@ -1,0 +1,5 @@
+# ignored files
+.env
+secrets.py
+*.log
+*.csv
