@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 import json
+import requests
 
 
 def lookup_player_group(team_id, columns):
@@ -35,3 +36,13 @@ def lookup_team(team_id, columns):
     for column_name in columns:
         result[column_name] = team_data[column_name][0]
     return result
+
+
+def lookup_event_clock(fixture_id):
+    # url = 'https://footballapi.pulselive.com/football/fixtures/66353/textstream/EN?pageSize=100&sort=desc'
+    url = 'https://footballapi.pulselive.com/football/fixtures/{}'.format(fixture_id)
+    headers = {
+        'Origin': 'https://www.premierleague.com'
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()['clock']['label']
