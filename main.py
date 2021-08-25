@@ -11,7 +11,7 @@ import datetime
 import pytz
 import json
 import sqlite3
-from lookups import lookup_player, lookup_team, lookup_player_group, lookup_event_clock
+from lookups import lookup_player, lookup_team, lookup_player_group, lookup_event_clock, lookup_price_changes
 from formats import format_identifier
 
 env = environ.Env()
@@ -79,8 +79,83 @@ async def db(ctx):
     # print(lookup_event_clock(66353))
     # for emoji in ctx.guild.emojis:
     #     print(emoji)
-        # print(emoji.id)
-    print(discord.utils.get(ctx.guild.emojis, name='t4'))
+    # print(emoji.id)
+    # print(discord.utils.get(ctx.guild.emojis, name='t4'))
+    print(lookup_price_changes(413))
+    print(lookup_price_changes(95))
+    # change_data = []
+    # codes = [
+    #     47431,
+    #     54694,
+    #     59966,
+    #     98745,
+    #     156074,
+    #     195735,
+    #     223340,
+    #     154138,
+    #     82263,
+    #     124183,
+    #     165153,
+    #     219847,
+    #     212319,
+    #     173515,
+    #     245419,
+    #     157882,
+    #     204716,
+    #     214285,
+    #     74208,
+    #     141746,
+    #     148225,
+    #     172649,
+    #     180184,
+    #     209243,
+    #     78830,
+    #     57531,
+    #     86934,
+    #     172841
+    # ]
+    # player_data = []
+    # response = requests.get('https://fantasy.premierleague.com/api/bootstrap-static/')
+    # for player in response.json()['elements']:
+    #     if player['code'] in codes:
+    #         # print(player['cost_change_event'])
+    #         if player['cost_change_event'] == 0:
+    #             player['cost_change_event'] = player['cost_change_start']
+    #             player['cost_change_event_fall'] = player['cost_change_start_fall']
+    #         if player['cost_change_start'] == -2 or player['cost_change_start'] == 2:
+    #             player['cost_change_start'] = player['cost_change_event']
+    #             player['cost_change_start_fall'] = player['cost_change_event_fall']
+    #             # player['cost_change_start'] == 0
+    #             # player['cost_change_start_fall'] == 0
+    #         player_data.append(player)
+    # player_data_df = pd.DataFrame(player_data)
+    # con = sqlite3.connect("fplbot.db")
+    # player_data_df.to_sql("changesgw1", con, if_exists="replace")
+    # con.close()
+    # players = []
+    # for code in codes:
+    #     con = sqlite3.connect("fplbot.db")
+    #     player = pd.read_sql_query("SELECT * FROM players WHERE code=?", con, params=[code])
+    #     players.append(player)
+    #     # print(player)
+    #     con.close()
+    # df = players[0]
+    # for player in players:
+    #     df = df.append(player)
+    # print(df)
+
+    # con = sqlite3.connect("fplbot.db")
+    # # player = pd.read_sql_query("SELECT * FROM players WHERE code IN (?)", con, params=[codes])
+    # player = pd.read_sql_query("SELECT * FROM players WHERE code IN (47431, 54694, 59966, 98745, 156074, 195735, 223340, 154138, 82263, 124183, 165153, 219847, 212319, 173515, 245419, 157882, 204716, 214285, 74208, 141746, 148225, 172649, 180184, 209243, 78830, 57531, 86934, 172841)", con)
+    # for p in player:
+    #     print(p)
+    # player.to_sql("changesgw1", con, if_exists='replace')
+    # con.close()
+    # change_data_old_temp = pd.read_sql_query("SELECT * FROM changes", con)
+    # gw_name = "changesgw{}".format(week['id'])
+    # change_data_old_temp.to_sql(gw_name, con, if_exists="replace")
+    # change_data_old = change_data_old_temp.values.tolist()
+    # con.close()
 
 
 @bot.command(name='sync', help='Run once to make the bot work')
@@ -630,10 +705,12 @@ async def search(ctx, *, player_search):
             for x in range(0, 5):
                 fixtures += "GW-{}: {} ({})\n".format(player_fixtures[x][0], player_fixtures[x][1], player_fixtures[x][2])
             fixtures += "```"
+            changes = "```\n" + lookup_price_changes(player[15], ctx.guild) + "\n```"
             embed = discord.Embed(title=title)
             embed.set_thumbnail(url=image)
             embed.add_field(name='Info', value=player_result)
             embed.add_field(name='Upcoming Fixtures', value=fixtures, inline=False)
+            embed.add_field(name='Price Changes', value=changes, inline=False)
             await ctx.send(embed=embed)
     if found == 0:
         await ctx.send("Couldn't find that player.")

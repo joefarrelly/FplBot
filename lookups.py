@@ -46,3 +46,37 @@ def lookup_event_clock(fixture_id):
     }
     response = requests.get(url, headers=headers)
     return response.json()['clock']['label']
+
+
+def lookup_price_changes(player_id, guild):
+    con = sqlite3.connect("fplbot.db")
+    tables_old = pd.read_sql_query("SELECT tbl_name FROM sqlite_master WHERE type='table' AND name LIKE 'changes%'", con)
+    # tables = tables_old.values
+    # player = pd.read_sql_query("SELECT web_name FROM players WHERE id=?", con, params=[player_id])
+    # player = pd.read_sql_query("SELECT web_name FROM changesgw1 WHERE id=?", con, params=[player_id])
+    # con.close()
+    result = []
+    for table in tables_old.values:
+        # print(table[0])
+        # sql = "SELECT web_name FROM {} WHERE id={}".format(table[0], player_id)
+        # print(sql)
+        sql = "SELECT cost_change_event FROM {} WHERE id=?".format(table[0])
+        # temp = pd.read_sql_query("SELECT web_name FROM ? WHERE id=?", con, params=[table[0], player_id])
+        temp = pd.read_sql_query(sql, con, params=[player_id])
+        # sql = "SELECT web_name FROM {} WHERE id={}".format(table, player_id)
+        # temp = pd.read_sql_query(sql, con)
+        # print(temp)
+        if not temp.empty:
+            # print(temp.values[0])
+            print([table[0], temp['cost_change_event'][0]])
+            result.append([table[0], temp['cost_change_event'][0]])
+        else:
+            print([table[0], 0])
+            result.append([table[0], 0])
+    final_result = '| '
+    for item in reversed(result):
+        final_result = final_result + str(item[1]) + ' | '
+    # print(player)
+    con.close()
+    # return tables_old
+    return final_result
