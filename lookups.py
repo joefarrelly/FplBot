@@ -66,16 +66,22 @@ def lookup_price_changes(player_id, guild):
         # sql = "SELECT web_name FROM {} WHERE id={}".format(table, player_id)
         # temp = pd.read_sql_query(sql, con)
         # print(temp)
+        # if table[0] == 'changes':
+        #     table[0] == 'changesgw' + str(len(tables_old.values))
+        # print(len(tables_old.values))
+        if not table[0][7:]:
+            table[0] = 'changesgw' + str(format(len(tables_old.values), '02d'))
+            # print("here")
         if not temp.empty:
             # print(temp.values[0])
-            print([table[0], temp['cost_change_event'][0]])
-            result.append([table[0], temp['cost_change_event'][0]])
+            # print([table[0][7:], temp['cost_change_event'][0]])
+            result.append([table[0][7:], temp['cost_change_event'][0]])
         else:
-            print([table[0], 0])
-            result.append([table[0], 0])
-    final_result = '| '
-    for item in reversed(result):
-        final_result = final_result + str(item[1]) + ' | '
+            # print([table[0][7:], 0])
+            result.append([table[0][7:], 0])
+    final_result = '|'
+    for item in result:
+        final_result = final_result + ' {} {} |'.format(item[0].upper(), item[1])
     # print(player)
     con.close()
     # return tables_old

@@ -347,7 +347,7 @@ async def spam(channel):
             if week['is_previous']:
                 con = sqlite3.connect("fplbot.db")
                 change_data_old_temp = pd.read_sql_query("SELECT * FROM changes", con)
-                gw_name = "changesgw{}".format(week['id'])
+                gw_name = "changesgw{:02d}".format(week['id'])
                 change_data_old_temp.to_sql(gw_name, con, if_exists="replace")
                 change_data_old = change_data_old_temp.values.tolist()
                 con.close()
@@ -703,7 +703,7 @@ async def search(ctx, *, player_search):
             player_fixtures = team_fixtures_by_id(player[27])
             fixtures = "```\n"
             for x in range(0, 5):
-                fixtures += "GW-{}: {} ({})\n".format(player_fixtures[x][0], player_fixtures[x][1], player_fixtures[x][2])
+                fixtures += "GW-{:02d}: {} ({})\n".format(player_fixtures[x][0], player_fixtures[x][1], player_fixtures[x][2])
             fixtures += "```"
             changes = "```\n" + lookup_price_changes(player[15], ctx.guild) + "\n```"
             embed = discord.Embed(title=title)
@@ -737,14 +737,50 @@ async def team(ctx, *, team_search):
         for fixture in fixture_data:
             if not fixture[3]:
                 if team_search_id == fixture[10]:
-                    fixtures += "GW-{}: {} (A)\n".format(fixture[2], teams[fixture[12]])
+                    # diff = fixture[15] - fixture[16] - 1
+                    # if diff > 0:
+                    #     diff_emoji = '\U0001F7E2'
+                    # elif diff < 0:
+                    #     diff_emoji = '\U0001F534'
+                    # else:
+                    #     diff_emoji = '\U000026AA'
+                    fixtures += "GW-{:02d}: {} (A)\n".format(fixture[2], teams[fixture[12]] + ' ' * (14 - len(teams[fixture[12]])))
                 elif team_search_id == fixture[12]:
-                    fixtures += "GW-{}: {} (H)\n".format(fixture[2], teams[fixture[10]])
-    fixtures += "```"
-    embed = discord.Embed()
-    embed.set_thumbnail(url=image)
-    embed.add_field(name='{} Fixtures'.format(teams[team_search_id]), value=fixtures)
-    await ctx.send(embed=embed)
+                    # diff = fixture[16] - fixture[15]
+                    # if diff > 0:
+                    #     diff_emoji = '\U0001F7E2'
+                    # elif diff < 0:
+                    #     diff_emoji = '\U0001F534'
+                    # else:
+                    #     diff_emoji = '\U000026AA'
+                    fixtures += "GW-{:02d}: {} (H)\n".format(fixture[2], teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])))
+            else:
+                if team_search_id == fixture[10] or team_search_id == fixture[12]:
+                    if fixture[11] > fixture[13]:
+                        win = fixture[10]
+                    elif fixture[11] < fixture[13]:
+                        win = fixture[12]
+                    else:
+                        win = 0
+                    if win == 0:
+                        win_loss_emoji = '\U000026AA'
+                    elif team_search_id == win:
+                        win_loss_emoji = '\U0001F7E2'
+                    else:
+                        win_loss_emoji = '\U0001F534'
+                    fixtures += "GW-{:02d}: {} {} - {} {} {}\n".format(fixture[2], ' ' * (14 - len(teams[fixture[12]])) + teams[fixture[12]], int(fixture[13]), int(fixture[11]), teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])), win_loss_emoji)
+                # if team_search_id == fixture[10]:
+                    # fixtures += "GW-{}: {} {} - {} {}\n".format(fixture[2], teams[fixture[12]], int(fixture[13]), teams[fixture[10]], int(fixture[11]))
+                # elif team_search_id == fixture[12]:
+                    # fixtures += "GW-{}: {} {} - {} {}\n".format(fixture[2], teams[fixture[12]], int(fixture[13]), teams[fixture[10]], int(fixture[11]))
+        fixtures += "```"
+        embed = discord.Embed(title='{} Fixtures'.format(teams[team_search_id]), description=fixtures)
+        embed.set_thumbnail(url=image)
+        # embed.add_field(name='{} Fixtures'.format(teams[team_search_id]), value=fixtures)
+        print(len(fixtures))
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("Team not found")
 
 
 @bot.command(name='dump', help='Dumps all FPL API data into sqlite db')
