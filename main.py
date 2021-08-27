@@ -13,6 +13,8 @@ import json
 import sqlite3
 from lookups import lookup_player, lookup_team, lookup_player_group, lookup_event_clock, lookup_price_changes
 from formats import format_identifier
+import numpy
+import math
 
 env = environ.Env()
 environ.Env.read_env()
@@ -56,106 +58,56 @@ async def on_command_error(ctx, error):
 
 @bot.command(name='db')
 async def db(ctx):
-    # con = sqlite3.connect("fplbot.db")
-    # # cur = con.cursor()
-    # # cur.execute('''CREATE TABLE players (firstname text, secondname text, cost real)''')
-    # # cur.execute("INSERT INTO players VALUES ('John','Malovic',9.4)")
-    # # con.commit()
-    # db_df = pd.read_csv("current.csv")
-    # db_df.to_sql("changes", con, if_exists="replace")
-    # con.close()
-    # print(lookup_player(42, ['web_name', 'second_name', 'now_cost']))
-    # print(lookup_player_group(2, ['web_name', 'event_points']))
-    # temp = lookup_player('Mendy', ['web_name', 'second_name', 'now_cost'])
-    # print(lookup_team(11, ['name', 'short_name']))
-    # url = 'https://footballapi.pulselive.com/football/fixtures/66353/textstream/EN?pageSize=100&sort=desc'
-    # headers = {
-    #     'Origin': 'https://www.premierleague.com',
-    # }
-    # response = requests.get(url, headers=headers)
-    # print(response.json())
-    # print(response.json()['events']['pageInfo'])
-    # print(response.json()['fixture']['clock'])
-    # print(lookup_event_clock(66353))
-    # for emoji in ctx.guild.emojis:
-    #     print(emoji)
-    # print(emoji.id)
-    # print(discord.utils.get(ctx.guild.emojis, name='t4'))
-    print(lookup_price_changes(413))
-    print(lookup_price_changes(95))
-    # change_data = []
-    # codes = [
-    #     47431,
-    #     54694,
-    #     59966,
-    #     98745,
-    #     156074,
-    #     195735,
-    #     223340,
-    #     154138,
-    #     82263,
-    #     124183,
-    #     165153,
-    #     219847,
-    #     212319,
-    #     173515,
-    #     245419,
-    #     157882,
-    #     204716,
-    #     214285,
-    #     74208,
-    #     141746,
-    #     148225,
-    #     172649,
-    #     180184,
-    #     209243,
-    #     78830,
-    #     57531,
-    #     86934,
-    #     172841
-    # ]
-    # player_data = []
-    # response = requests.get('https://fantasy.premierleague.com/api/bootstrap-static/')
-    # for player in response.json()['elements']:
-    #     if player['code'] in codes:
-    #         # print(player['cost_change_event'])
-    #         if player['cost_change_event'] == 0:
-    #             player['cost_change_event'] = player['cost_change_start']
-    #             player['cost_change_event_fall'] = player['cost_change_start_fall']
-    #         if player['cost_change_start'] == -2 or player['cost_change_start'] == 2:
-    #             player['cost_change_start'] = player['cost_change_event']
-    #             player['cost_change_start_fall'] = player['cost_change_event_fall']
-    #             # player['cost_change_start'] == 0
-    #             # player['cost_change_start_fall'] == 0
-    #         player_data.append(player)
-    # player_data_df = pd.DataFrame(player_data)
-    # con = sqlite3.connect("fplbot.db")
-    # player_data_df.to_sql("changesgw1", con, if_exists="replace")
-    # con.close()
-    # players = []
-    # for code in codes:
-    #     con = sqlite3.connect("fplbot.db")
-    #     player = pd.read_sql_query("SELECT * FROM players WHERE code=?", con, params=[code])
-    #     players.append(player)
-    #     # print(player)
-    #     con.close()
-    # df = players[0]
-    # for player in players:
-    #     df = df.append(player)
-    # print(df)
-
-    # con = sqlite3.connect("fplbot.db")
-    # # player = pd.read_sql_query("SELECT * FROM players WHERE code IN (?)", con, params=[codes])
-    # player = pd.read_sql_query("SELECT * FROM players WHERE code IN (47431, 54694, 59966, 98745, 156074, 195735, 223340, 154138, 82263, 124183, 165153, 219847, 212319, 173515, 245419, 157882, 204716, 214285, 74208, 141746, 148225, 172649, 180184, 209243, 78830, 57531, 86934, 172841)", con)
-    # for p in player:
-    #     print(p)
-    # player.to_sql("changesgw1", con, if_exists='replace')
-    # con.close()
-    # change_data_old_temp = pd.read_sql_query("SELECT * FROM changes", con)
-    # gw_name = "changesgw{}".format(week['id'])
-    # change_data_old_temp.to_sql(gw_name, con, if_exists="replace")
-    # change_data_old = change_data_old_temp.values.tolist()
-    # con.close()
+    con = sqlite3.connect("fplbot.db")
+    fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE finished=1", con)
+    # team_data = pd.read_sql_query("SELECT * FROM teams", con)
+    # test = pd.read_sql_query("SELECT played FROM standings", con)
+    con.close()
+    # fixtures = fixture_data.to_dict(orient='index')
+    teams = {
+        1: [],
+        2: [],
+        3: [],
+        4: [],
+        5: [],
+        6: [],
+        7: [],
+        8: [],
+        9: [],
+        10: [],
+        11: [],
+        12: [],
+        13: [],
+        14: [],
+        15: [],
+        16: [],
+        17: [],
+        18: [],
+        19: [],
+        20: [],
+    }
+    fixtures = fixture_data.values.tolist()
+    for fixture in fixtures:
+        away_team = [fixture[10]]
+        home_team = [fixture[12]]
+        if fixture[11] > fixture[13]:
+            teams[away_team[0]].append(numpy.array([1, 1, 0, 0, fixture[11], fixture[13], fixture[11] - fixture[13], 3]).astype(int))
+            teams[home_team[0]].append(numpy.array([1, 0, 0, 1, fixture[13], fixture[11], fixture[13] - fixture[11], 0]).astype(int))
+        elif fixture[11] < fixture[13]:
+            teams[away_team[0]].append(numpy.array([1, 0, 0, 1, fixture[11], fixture[13], fixture[11] - fixture[13], 0]).astype(int))
+            teams[home_team[0]].append(numpy.array([1, 1, 0, 0, fixture[13], fixture[11], fixture[13] - fixture[11], 3]).astype(int))
+        else:
+            teams[away_team[0]].append(numpy.array([1, 0, 1, 0, fixture[11], fixture[13], fixture[11] - fixture[13], 1]).astype(int))
+            teams[home_team[0]].append(numpy.array([1, 0, 1, 0, fixture[11], fixture[13], fixture[11] - fixture[13], 1]).astype(int))
+    for team in teams:
+        teams[team] = numpy.sum(teams[team], axis=0)
+    # print(teams)
+    teams_df_old = pd.DataFrame.from_dict(teams, orient='index', columns=['played', 'w', 'd', 'l', 'gf', 'ga', 'gd', 'points'])
+    teams_df = teams_df_old.sort_values(by=['points', 'gd', 'gf'], ascending=False)
+    con = sqlite3.connect("fplbot.db")
+    teams_df.to_sql("standings", con, if_exists="replace")
+    con.close()
+    await ctx.send(teams_df)
 
 
 @bot.command(name='sync', help='Run once to make the bot work')
@@ -194,6 +146,16 @@ async def sync(ctx):
                         await ctx.send("Sync successful")
         if not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running():
             await ctx.send("Error with sync, make sure there is a text channel called fpl-updates")
+
+
+@tasks.loop(seconds=60 * 5)
+async def update_table():
+    con = sqlite3.connect("fplbot.db")
+    fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE finished=1")
+    con.close()
+    temp = team_standing(3, 'Brentford')
+    print(temp)
+
 
 
 @tasks.loop(seconds=60)
@@ -640,7 +602,7 @@ async def twitter_bot(ctx, channel):
                     embed = discord.Embed(description=tweet['text'])
                     await channel.send(embed=embed)
     except Exception as e:
-        await ctx.send("Error connecting to twitter API: {}".format(e))
+        print(ctx.send("Error connecting to twitter API: {}".format(e)))
 
 
 def team_fixtures_by_id(team_id):
@@ -663,6 +625,30 @@ def team_fixtures_by_id(team_id):
                 elif team_id == fixture[12]:
                     fixtures.append([fixture[2], teams[fixture[10]], 'H'])
     return(fixtures)
+
+
+@bot.command(name='table')
+async def table(ctx):
+    try:
+        con = sqlite3.connect("fplbot.db")
+        standings = pd.read_sql_query("SELECT * FROM standings", con)
+        con.close()
+        result = '```\n|Pos|Clb|Ply| W | D | L |GF |GA |GD |Pts|\n|---+---+---+---+---+---+---+---+---+---|\n'
+        for index, team in enumerate(standings.values.tolist(), 1):
+            team[0] = lookup_team(team[0], ['short_name'])
+            team[7] = '{0:+d}'.format(team[7])
+            team.insert(0, index)
+            team_result = '|'
+            for item in team:
+                # team_result = team_result + '{:<3}|'.format(item)
+                team_result = team_result + ' ' * math.floor((-len(str(item)) * 0.5) + 1.5) + str(item) + ' ' * math.ceil((-len(str(item)) * 0.5) + 1.5) + '|'
+            result = result + team_result + '\n'
+        result = result + '```'
+        embed = discord.Embed(title='Premier League Table', description=result)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send("No data found")
+        print(e)
 
 
 @bot.command(name='search', aliases=['s'], help='Lookup a specific player')
