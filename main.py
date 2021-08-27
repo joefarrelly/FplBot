@@ -275,7 +275,7 @@ async def spam(channel):
                 # print(player)
                 # print(change_data_old[index - offset])
                 # if player == change_data_old[change_data_new.index(player) - offset]:
-                if player[2] == change_data_old[index - offset][2]:
+                if player[2] == change_data_old[index - offset][2] and player[3] == change_data_old[index - offset][3]:
                     continue
                 else:
                     offset += 1
