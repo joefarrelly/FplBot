@@ -19,13 +19,6 @@ import math
 env = environ.Env()
 environ.Env.read_env()
 
-# True scrapes the site, False uses the local data.csv
-# live = env("DEBUG_OPTION")
-# if live:
-#     print("True")
-# else:
-#     print("False")
-
 tweet_id = ''
 
 
@@ -60,10 +53,7 @@ async def on_command_error(ctx, error):
 async def db(ctx):
     con = sqlite3.connect("fplbot.db")
     fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE finished=1", con)
-    # team_data = pd.read_sql_query("SELECT * FROM teams", con)
-    # test = pd.read_sql_query("SELECT played FROM standings", con)
     con.close()
-    # fixtures = fixture_data.to_dict(orient='index')
     teams = {
         1: [],
         2: [],
@@ -101,7 +91,6 @@ async def db(ctx):
             teams[home_team[0]].append(numpy.array([1, 0, 1, 0, fixture[11], fixture[13], fixture[11] - fixture[13], 1]).astype(int))
     for team in teams:
         teams[team] = numpy.sum(teams[team], axis=0)
-    # print(teams)
     teams_df_old = pd.DataFrame.from_dict(teams, orient='index', columns=['played', 'w', 'd', 'l', 'gf', 'ga', 'gd', 'points'])
     teams_df = teams_df_old.sort_values(by=['points', 'gd', 'gf'], ascending=False)
     con = sqlite3.connect("fplbot.db")
@@ -113,7 +102,7 @@ async def db(ctx):
 @bot.command(name='sync', help='Run once to make the bot work')
 async def sync(ctx):
     if extra:
-        if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running():
+        if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
             await ctx.send("Already synced")
         else:
             for channel in ctx.guild.channels:
@@ -126,12 +115,14 @@ async def sync(ctx):
                         twitter_bot.start(ctx, channel)
                     if not live_data.is_running():
                         live_data.start(channel, ctx.guild)
-                    if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running():
+                    if not update_table.is_running():
+                        update_table.start()
+                    if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
                         await ctx.send("Sync successful")
-        if not secrets.scrape.is_running() or not spam.is_running():
+        if not secrets.scrape.is_running() or not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running() or not update_table.is_running():
             await ctx.send("Error with sync, make sure there is a text channel called fpl-updates")
     else:
-        if spam.is_running() and twitter_bot.is_running() and live_data.is_running():
+        if spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
             await ctx.send("Already synced")
         else:
             for channel in ctx.guild.channels:
@@ -142,20 +133,62 @@ async def sync(ctx):
                         twitter_bot.start(ctx, channel)
                     if not live_data.is_running():
                         live_data.start(channel, ctx.guild)
-                    if spam.is_running() and twitter_bot.is_running() and live_data.is_running():
+                    if not update_table.is_running():
+                        update_table.start()
+                    if spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
                         await ctx.send("Sync successful")
-        if not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running():
+        if not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running() or not update_table.is_running():
             await ctx.send("Error with sync, make sure there is a text channel called fpl-updates")
 
 
 @tasks.loop(seconds=60 * 5)
 async def update_table():
     con = sqlite3.connect("fplbot.db")
-    fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE finished=1")
+    fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE finished=1", con)
     con.close()
-    temp = team_standing(3, 'Brentford')
-    print(temp)
-
+    teams = {
+        1: [],
+        2: [],
+        3: [],
+        4: [],
+        5: [],
+        6: [],
+        7: [],
+        8: [],
+        9: [],
+        10: [],
+        11: [],
+        12: [],
+        13: [],
+        14: [],
+        15: [],
+        16: [],
+        17: [],
+        18: [],
+        19: [],
+        20: [],
+    }
+    fixtures = fixture_data.values.tolist()
+    for fixture in fixtures:
+        away_team = [fixture[10]]
+        home_team = [fixture[12]]
+        if fixture[11] > fixture[13]:
+            teams[away_team[0]].append(numpy.array([1, 1, 0, 0, fixture[11], fixture[13], fixture[11] - fixture[13], 3]).astype(int))
+            teams[home_team[0]].append(numpy.array([1, 0, 0, 1, fixture[13], fixture[11], fixture[13] - fixture[11], 0]).astype(int))
+        elif fixture[11] < fixture[13]:
+            teams[away_team[0]].append(numpy.array([1, 0, 0, 1, fixture[11], fixture[13], fixture[11] - fixture[13], 0]).astype(int))
+            teams[home_team[0]].append(numpy.array([1, 1, 0, 0, fixture[13], fixture[11], fixture[13] - fixture[11], 3]).astype(int))
+        else:
+            teams[away_team[0]].append(numpy.array([1, 0, 1, 0, fixture[11], fixture[13], fixture[11] - fixture[13], 1]).astype(int))
+            teams[home_team[0]].append(numpy.array([1, 0, 1, 0, fixture[11], fixture[13], fixture[11] - fixture[13], 1]).astype(int))
+    for team in teams:
+        teams[team] = numpy.sum(teams[team], axis=0)
+    teams_df_old = pd.DataFrame.from_dict(teams, orient='index', columns=['played', 'w', 'd', 'l', 'gf', 'ga', 'gd', 'points'])
+    teams_df = teams_df_old.sort_values(by=['points', 'gd', 'gf'], ascending=False)
+    con = sqlite3.connect("fplbot.db")
+    teams_df.to_sql("standings", con, if_exists="replace")
+    con.close()
+    print("League table updated")
 
 
 @tasks.loop(seconds=60)
@@ -170,20 +203,10 @@ async def spam(channel):
         player_data.append(player)
         if player['cost_change_event'] != 0:
             change_data_new.append(player)
-            # new_vals.append(player)
-        # elif player['cost_change_event'] < 0:
-        #     spamspam.append(player)
-            # new_vals.append(player)
     player_data_df = pd.DataFrame(player_data)
     con = sqlite3.connect("fplbot.db")
     player_data_df.to_sql("players", con, if_exists="replace")
     con.close()
-    # new_vals = []
-    # for i in change_data:
-    #     if i[2] > 0:
-    #         new_vals.append([i[0], i[1] / 10, '(' + i[3] + ')', i[2]])
-    #     elif i[2] < 0:
-    #         new_vals.append([i[0], i[1] / 10, '(' + i[3] + ')', i[2]])
     if change_data_new:
         try:
             con = sqlite3.connect("fplbot.db")
@@ -194,49 +217,14 @@ async def spam(channel):
             change_data_old = ['placeholder']
             print("No change data in db")
             print(e)
-        # print("############OLD")
-        # print(change_data_old)
-        # print("############NEW")
-        # print(pd.DataFrame(change_data_new).values.tolist())
-        # print(change_data_new)
-        # try:
-        #     temp_csv = pd.read_csv('current.csv')
-        #     old_vals = temp_csv.values.tolist()
-        # except:
-        #     old_vals = ['bloat']
-        #     print("No csv data exists, all changes added")
-        # if len(old_vals) > len(new_vals):
-        #     for week in response.json()['events']:
-        #         if week['is_previous']:
-        #             temp_csv.to_csv('gameweek{}.csv'.format(week['id']))
-        #     old_vals = ['bloat']
-        # change_csv = pd.DataFrame(new_vals)
-        # change_csv.to_csv('current.csv', index=None)
         change_data_new_df = pd.DataFrame(change_data_new)
         con = sqlite3.connect("fplbot.db")
         change_data_new_df.to_sql("changes", con, if_exists="replace")
         con.close()
-        # diff_vals = []
-        # offset = 0
-        # for i in new_vals:
-        #     try:
-        #         if i == old_vals[new_vals.index(i) - offset]:
-        #             continue
-        #         else:
-        #             offset += 1
-        #             diff_vals.append(i)
-        #     except IndexError:
-        #         diff_vals.append(i)
-        # print("Missing players are:\n{}".format(diff_vals))
         diff_change_data = []
         offset = 0
-        # for index, player in enumerate(change_data_new):
         for index, player in enumerate(change_data_new_df.values.tolist()):
-            # print(index)
             try:
-                # print(player)
-                # print(change_data_old[index - offset])
-                # if player == change_data_old[change_data_new.index(player) - offset]:
                 if player[2] == change_data_old[index - offset][2] and player[3] == change_data_old[index - offset][3]:
                     continue
                 else:
@@ -244,50 +232,14 @@ async def spam(channel):
                     diff_change_data.append(player)
             except IndexError:
                 diff_change_data.append(player)
-        # print("Missing players are:\n{}".format(diff_change_data))
         print("Missing players are:\n{}".format(diff_change_data))
-        # up_change = "```\n"
-        # down_change = "```\n"
-        # for z in diff_vals:
-        #     if z[3] > 0:
-        #         up_change += "{} - £{}m\n".format(z[0], z[1])
-        #     elif z[3] < 0:
-        #         down_change += "{} - £{}m\n".format(z[0], z[1])
-        # if up_change == "```\n" and down_change == "```\n":
-        #     pass
-        # else:
-        #     if up_change == "```\n":
-        #         up_change += "None\n```"
-        #     else:
-        #         up_change += "```"
-        #     if down_change == "```\n":
-        #         down_change += "None\n```"
-        #     else:
-        #         down_change += "```"
-        #     embed = discord.Embed()
-        #     embed.add_field(name='Price Rises', value=up_change)
-        #     embed.add_field(name='Price Falls', value=down_change)
-        #     await channel.send(embed=embed)
         if diff_change_data:
-            # print(diff_change_data)
             up_change = "```\n"
             down_change = "```\n"
             for player in diff_change_data:
-                # print(player)
-                # break
-                # print(player['cost_change_event'])
-                # print(player[0])
-                # print(player[1])
-                # print(player[2])
-                # print(player[3])
-                # break
-                # if player['cost_change_event'] > 0:
                 if player[3] > 0:
-                    # up_change += "{} - £{}m\n".format(player['web_name'], player['now_cost'] / 10)
                     up_change += "{} - £{}m\n".format(player[35], player[18] / 10)
-                # elif player['cost_change_event'] < 0:
                 elif player[3] < 0:
-                    # down_change += "{} - £{}m\n".format(player['web_name'], player['now_cost'] / 10)
                     down_change += "{} - £{}m\n".format(player[35], player[18] / 10)
             if up_change == "```\n" and down_change == "```\n":
                 pass
@@ -315,59 +267,26 @@ async def spam(channel):
                 con.close()
 
 
-# @bot.command(name='tweet')
-# async def tweet(ctx):
-#     twitter_bot.start(ctx)
-#     await ctx.send("tweeting")
-
 @tasks.loop(seconds=10)
 async def live_data(channel, guild):
-# @bot.command(name='live')
-# async def live(ctx):
     print("scanning")
     response = requests.get('https://fantasy.premierleague.com/api/fixtures/')
     con = sqlite3.connect("fplbot.db")
     fixture_data = pd.read_sql_query("SELECT * FROM fixtures", con)
-    # player_data = pd.read_sql_query("SELECT * FROM players", con)
-    # team_data = pd.read_sql_query("SELECT * FROM teams", con)
     con.close()
-    # fixture_data = fixture_data_temp.values.tolist()
-    # print(fixture_data)
-    # print(fixture_data_temp)
-    # print(fixture_data_temp.iloc[3])
-    # for fixture in fixture_data:
-    #     # con = sqlite3.connect("fplbot.db")
-    #     print(fixture[0])
     fixture_data_new = []
     for index1, game in enumerate(response.json()):
         change_data = []
         new_change_data = []
         if not game['started']:
-            # fixture_data_new.append(fixture_data.iloc[index])
             game['stats'] = json.dumps(game['stats'])
             fixture_data_new.append(game)
             continue
-        # print(index)
-        # print(game)
-        # print(game['stats'])
-        # print(json.dumps(game['stats']))
-        # temp = fixture_data.iloc[index1]
         temp = fixture_data.iloc[index1]
         game_data = json.loads(temp['stats'])
-        # print(game_data)
-        # print(temp['stats'])
-        # if json.dumps(game['stats']) == temp['stats']:
-        #     print(game['code'])
-        #     print("bloop")
         if game['stats'] != game_data:
-            # print("werk")
-            # continue
             for index2, stat in enumerate(game['stats']):
-                # print(game_data[index2])
-                # print(stat)
-                # print(game_data[index])
                 try:
-                    # print(game_data[index2])
                     if stat != game_data[index2]:
                         if stat['a']:
                             for item in stat['a']:
@@ -383,21 +302,15 @@ async def live_data(channel, guild):
                                         new_change_data.append(['h', stat['identifier'], item])
                                 else:
                                     new_change_data.append(['h', stat['identifier'], item])
-                        # print(new_change_data)
                         change_data.append([stat['identifier'], stat['a'], stat['h'], index2])
                 except IndexError:
                     change_data.append([stat['identifier'], stat['a'], stat['h'], index2])
-                    # new_change_data.append([stat['identifier']])
                     if stat['a']:
                         for item in stat['a']:
                             new_change_data.append(['a', stat['identifier'], item])
                     if stat['h']:
                         for item in stat['h']:
                             new_change_data.append(['h', stat['identifier'], item])
-                    # new_change_data.append([stat['identifier'], item])
-                # print(new_change_data)
-            # print(change_data)
-            # print(new_change_data)
             if new_change_data:
                 on = sqlite3.connect("fplbot.db")
                 away = lookup_team(game['team_a'], ['name', 'short_name', 'code'])
@@ -412,7 +325,6 @@ async def live_data(channel, guild):
                         if value[0] == 'a':
                             image = "https://resources.premierleague.com/premierleague/badges/50/t{}.png".format(away['code'])
                             print("{} {}: {} - {} for player {}".format(value[0], away['name'], value[1], value[2]['value'], away_players[value[2]['element']]['web_name']))
-                            # embed_desc = "{}\n{} ({})".format(format_identifier(value[1]), away_players[value[2]['element']]['web_name'], away['short_name'])
                             if value[1] == 'bonus':
                                 player_team = "{} - {} ({})".format(value[2]['value'], away_players[value[2]['element']]['web_name'], away['short_name'])
                             else:
@@ -424,160 +336,20 @@ async def live_data(channel, guild):
                                 player_team = "{} - {} ({})".format(value[2]['value'], home_players[value[2]['element']]['web_name'], home['short_name'])
                             else:
                                 player_team = "{} ({})\n{}".format(home_players[value[2]['element']]['web_name'], home['short_name'], event_clock)
-                            # embed_desc = "{}\n{} ({})".format(format_identifier(value[1]), home_players[value[2]['element']]['web_name'], home['short_name'])    
-                        # embed = discord.Embed(description=embed_desc)
-                        # embed = discord.Embed()
-                        # event_info = ":t{}: {} {} - {} {} :t{}:".format(home['code'], home['short_name'], game['team_h_score'], game['team_a_score'], away['short_name'], away['code'])
                         event_info = "{} {} {} - {} {} {}".format(discord.utils.get(guild.emojis, name='t' + str(home['code'])), home['short_name'], game['team_h_score'], game['team_a_score'], away['short_name'], discord.utils.get(guild.emojis, name='t' + str(away['code'])))
                         embed.set_thumbnail(url=image)
                         embed.add_field(name=format_identifier(value[1]), value=player_team, inline=False)
                         embed.add_field(name='\u200b', value=event_info)
                 await channel.send(embed=embed)
-            # if change_data:
-            #     con = sqlite3.connect("fplbot.db")
-            #     away = lookup_team(game['team_a'], ['name', 'short_name'])
-            #     away_players = lookup_player_group(game['team_a'], ['web_name', 'event_points'])
-            #     home = lookup_team(game['team_h'], ['name', 'short_name'])
-            #     home_players = lookup_player_group(game['team_h'], ['web_name', 'event_points'])
-            #     con.close()
-            #     # await channel.send(change_data)
-            #     for category in change_data:
-            #         if category[1]:
-            #             for item in category[1]:
-            #                 print(item)
-            #                 # print("A {} - {} for player {}".format(category[0], item['value'], item['element']))
-            #                 # print("A {}: {} - {} for player {}".format(away['name'], category[0], item['value'], item['element']))
-            #                 print("A {}: {} - {} for player {}".format(away['name'], category[0], item['value'], away_players[item['element']]['web_name']))
-            #                 try:
-            #                     # for subitem in game_data[0][category[0]]
-            #                     # print(game_data)
-            #                     # print(category[3])
-            #                     temp = category[3]
-            #                     # print(game_data)
-            #                     # if game_data[0][category[0]]:
-            #                     #     print(game_data[0][category[0]])
-            #                 except IndexError:
-            #                     print("Error Index")
-            #                 except KeyError:
-            #                     print("Error Key")
-            #                 except TypeError:
-            #                     print("Type Error")
-            #         if category[2]:
-            #             for item in category[2]:
-            #                 print(item)
-            #                 # print("H {} - {} for player {}".format(category[0], item['value'], item['element']))
-            #                 # print("H {}: {} - {} for player {}".format(home['name'], category[0], item['value'], item['element']))
-            #                 print("H {}: {} - {} for player {}".format(home['name'], category[0], item['value'], home_players[item['element']]['web_name']))
-            #                 try:
-            #                     # print(game_data)
-            #                     if game_data[0][category[0]]:
-            #                         print(game_data[0][category[0]])
-            #                 except IndexError:
-            #                     print("Error Index")
-            #                 except KeyError:
-            #                     print("Error Key")
-            #                 except TypeError:
-            #                     print("Type Error")
-            #     # for category in change_data:
-                #     print(category)
-                #     if category[0] == 'goals_scored':
-                #         title = category[0]
-                #         goals_scored_away = category[1]
-                #         goals_scored_home = category[2]
-                #         away = goals_scored_away
-                #         home = goals_scored_home
-                #         desc = goals_scored_away + goals_scored_home
-                #     elif category[0] == 'assists':
-                #         title = category[0]
-                #         assists_away = category[1]
-                #         assists_home = category[2]
-                #         away = assists_away
-                #         home = assists_home
-                #         desc = assists_away + assists_home
-                #     elif category[0] == 'own_goals':
-                #         title = category[0]
-                #         own_goals_away = category[1]
-                #         own_goals_home = category[2]
-                #         away = own_goals_away
-                #         home = own_goals_home
-                #         desc = own_goals_away + own_goals_home
-                #     elif category[0] == 'penalties_saved':
-                #         title = category[0]
-                #         penalties_saved_away = category[1]
-                #         penalties_saved_home = category[2]
-                #         away = penalties_saved_away
-                #         home = penalties_saved_home
-                #         desc = penalties_saved_away + penalties_saved_home
-                #     elif category[0] == 'penalties_missed':
-                #         title = category[0]
-                #         penalties_missed_away = category[1]
-                #         penalties_missed_home = category[2]
-                #         away = penalties_missed_away
-                #         home = penalties_missed_home
-                #         desc = penalties_missed_away + penalties_missed_home
-                #     elif category[0] == 'yellow_cards':
-                #         title = category[0]
-                #         yellow_cards_away = category[1]
-                #         yellow_cards_home = category[2]
-                #         away = yellow_cards_away
-                #         home = yellow_cards_home
-                #         desc = yellow_cards_away + yellow_cards_home
-                #     elif category[0] == 'red_cards':
-                #         title = category[0]
-                #         red_cards_away = category[1]
-                #         red_cards_home = category[2]
-                #         away = red_cards_away
-                #         home = red_cards_home
-                #         desc = red_cards_away + red_cards_home
-                #     elif category[0] == 'saves':
-                #         title = category[0]
-                #         saves_away = category[1]
-                #         saves_home = category[2]
-                #         away = saves_away
-                #         home = saves_home
-                #         desc = saves_away + saves_home
-                #     elif category[0] == 'bonus':
-                #         title = category[0]
-                #         bonus_away = category[1]
-                #         bonus_home = category[2]
-                #         away = bonus_away
-                #         home = bonus_home
-                #         desc = bonus_away + bonus_home
-                #     elif category[0] == 'bps':
-                #         title = category[0]
-                #         bps_away = category[1]
-                #         bps_home = category[2]
-                #         away = bps_away
-                #         home = bps_home
-                #         desc = bps_away + bps_home
-                #     embed = discord.Embed(title=title, description=desc)
-                #     embed.add_field(name='Home', value=home)
-                #     embed.add_field(name='Away', value=away)
-                #     await channel.send(embed=embed)
-            # if game['stats'][0] == game_data[0]:
-            #     print("moar werk")
-            # if game['stats']
             game['stats'] = json.dumps(game['stats'])
             fixture_data_new.append(game)
         else:
-            # fixture_data_new.append(fixture_data.iloc[index])
             game['stats'] = json.dumps(game['stats'])
             fixture_data_new.append(game)
-        # game['stats'] = json.dumps(game['stats'])
-        # else:
-        #     fixture_data_new.append()
     fixture_data_df = pd.DataFrame(fixture_data_new)
-    # print(fixture_data_df)
     con = sqlite3.connect("fplbot.db")
     fixture_data_df.to_sql("fixtures", con, if_exists="replace")
     con.close()
-    #     # if game['finished']:
-    #     #     continue
-    #     print(game['event'])
-    #     if not game['started']:
-    #         continue
-    # print(game)
-    # await channel.send("DONE")
 
 
 @tasks.loop(seconds=10)
@@ -640,7 +412,6 @@ async def table(ctx):
             team.insert(0, index)
             team_result = '|'
             for item in team:
-                # team_result = team_result + '{:<3}|'.format(item)
                 team_result = team_result + ' ' * math.floor((-len(str(item)) * 0.5) + 1.5) + str(item) + ' ' * math.ceil((-len(str(item)) * 0.5) + 1.5) + '|'
             result = result + team_result + '\n'
         result = result + '```'
@@ -723,22 +494,8 @@ async def team(ctx, *, team_search):
         for fixture in fixture_data:
             if not fixture[3]:
                 if team_search_id == fixture[10]:
-                    # diff = fixture[15] - fixture[16] - 1
-                    # if diff > 0:
-                    #     diff_emoji = '\U0001F7E2'
-                    # elif diff < 0:
-                    #     diff_emoji = '\U0001F534'
-                    # else:
-                    #     diff_emoji = '\U000026AA'
                     fixtures += "GW-{:02d}: {} (A)\n".format(fixture[2], teams[fixture[12]] + ' ' * (14 - len(teams[fixture[12]])))
                 elif team_search_id == fixture[12]:
-                    # diff = fixture[16] - fixture[15]
-                    # if diff > 0:
-                    #     diff_emoji = '\U0001F7E2'
-                    # elif diff < 0:
-                    #     diff_emoji = '\U0001F534'
-                    # else:
-                    #     diff_emoji = '\U000026AA'
                     fixtures += "GW-{:02d}: {} (H)\n".format(fixture[2], teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])))
             else:
                 if team_search_id == fixture[10] or team_search_id == fixture[12]:
@@ -755,15 +512,9 @@ async def team(ctx, *, team_search):
                     else:
                         win_loss_emoji = '\U0001F534'
                     fixtures += "GW-{:02d}: {} {} - {} {} {}\n".format(fixture[2], ' ' * (14 - len(teams[fixture[12]])) + teams[fixture[12]], int(fixture[13]), int(fixture[11]), teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])), win_loss_emoji)
-                # if team_search_id == fixture[10]:
-                    # fixtures += "GW-{}: {} {} - {} {}\n".format(fixture[2], teams[fixture[12]], int(fixture[13]), teams[fixture[10]], int(fixture[11]))
-                # elif team_search_id == fixture[12]:
-                    # fixtures += "GW-{}: {} {} - {} {}\n".format(fixture[2], teams[fixture[12]], int(fixture[13]), teams[fixture[10]], int(fixture[11]))
         fixtures += "```"
         embed = discord.Embed(title='{} Fixtures'.format(teams[team_search_id]), description=fixtures)
         embed.set_thumbnail(url=image)
-        # embed.add_field(name='{} Fixtures'.format(teams[team_search_id]), value=fixtures)
-        print(len(fixtures))
         await ctx.send(embed=embed)
     else:
         await ctx.send("Team not found")
@@ -771,7 +522,6 @@ async def team(ctx, *, team_search):
 
 @bot.command(name='dump', help='Dumps all FPL API data into sqlite db')
 async def dump_test(ctx):
-    # player_data = []
     team_data = []
     fixture_data = []
     response = requests.get('https://fantasy.premierleague.com/api/bootstrap-static/')
@@ -780,59 +530,18 @@ async def dump_test(ctx):
         team_data.append(team)
     for fixture in fixture_response.json():
         fixture['stats'] = json.dumps(fixture['stats'])
-        if fixture['code'] == 2210282:
-            # fixture['stats'] = '[]'
-            # fixture['stats'] = json.dumps(fixture['stats'][0])
-            fixture['stats'] = '[{"identifier": "goals_scored", "a": [], "h": [{"value": 1, "element": 42}]}, {"identifier": "assists", "a": [], "h": [{"value": 1, "element": 38}]}]'
+        # if fixture['code'] == 2210282:
+        #     # fixture['stats'] = '[]'
+        #     # fixture['stats'] = json.dumps(fixture['stats'][0])
+        #     fixture['stats'] = '[{"identifier": "goals_scored", "a": [], "h": [{"value": 1, "element": 42}]}, {"identifier": "assists", "a": [], "h": [{"value": 1, "element": 38}]}]'
         fixture_data.append(fixture)
     con = sqlite3.connect("fplbot.db")
     team_data_df = pd.DataFrame(team_data)
     team_data_df.to_sql("teams", con, if_exists="replace")
     fixture_data_df_temp = pd.DataFrame(fixture_data)
-    print(fixture_data_df_temp)
-    # fixture_data_df = fixture_data_df_temp.drop(['stats'], axis=1)
-    # fixture_data_df.to_sql("fixtures", con, if_exists="replace")
     fixture_data_df_temp.to_sql("fixtures", con, if_exists="replace")
     con.close()
     await ctx.send('all team and fixture data dumped into sqlite db')
-
-
-# @bot.command(name='up', help='Show players likely to rise in price')
-# async def find_up(ctx, val: int):
-#     try:
-#         last_scrape = datetime.datetime.fromtimestamp(os.path.getmtime('data.csv'), tz=pytz.timezone("Europe/London"))
-#         pd_results = pd.read_csv('data.csv')
-#         new_temp = pd_results.drop(['Fixtures', 'Name.1', 'Arrow.1', 'Target.1', '#', 'Price', 'Position', 'Arrow', 'Unlocks', 'Club', 'Status', 'Owned'], axis=1)
-#         response = new_temp.values.tolist()
-#         block_result = "```\n"
-#         for i in response:
-#             if i[4] >= val:
-#                 block_result += "{} - {} ({})\n".format(i[0], i[1], i[4])
-#         block_result += "```\nLast updated: {}".format(last_scrape.strftime("%H:%M %d-%m-%Y"))
-#     except:
-#         block_result = "```\nNo data availible\n```"
-#     embed = discord.Embed()
-#     embed.add_field(name='Potential Rises', value=block_result)
-#     await ctx.send(embed=embed)
-
-
-# @bot.command(name='down', help='Show players likely to fall in price')
-# async def find_down(ctx, val: int):
-#     try:
-#         last_scrape = datetime.datetime.fromtimestamp(os.path.getmtime('data.csv'), tz=pytz.timezone("Europe/London"))
-#         pd_results = pd.read_csv('data.csv')
-#         new_temp = pd_results.drop(['Fixtures', 'Name.1', 'Arrow.1', 'Target.1', '#', 'Price', 'Position', 'Arrow', 'Unlocks', 'Club', 'Status', 'Owned'], axis=1)
-#         response = new_temp.values.tolist()
-#         block_result = "```\n"
-#         for i in response:
-#             if i[4] <= -val:
-#                 block_result += "{} - {} ({})\n".format(i[0], i[1], i[4])
-#         block_result += "```\nLast updated: {}".format(last_scrape.strftime("%H:%M %d-%m-%Y"))
-#     except:
-#         block_result = "```\nNo data availible\n```"
-#     embed = discord.Embed()
-#     embed.add_field(name='Potential Drops', value=block_result)
-#     await ctx.send(embed=embed)
 
 
 bot.run(TOKEN)
