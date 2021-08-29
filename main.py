@@ -283,12 +283,17 @@ async def spam(channel):
     else:
         for week in response.json()['events']:
             if week['is_previous']:
-                con = sqlite3.connect("fplbot.db")
-                change_data_old_temp = pd.read_sql_query("SELECT * FROM changes", con)
-                gw_name = "changesgw{:02d}".format(week['id'])
-                change_data_old_temp.to_sql(gw_name, con, if_exists="replace")
-                change_data_old = change_data_old_temp.values.tolist()
-                con.close()
+                try:
+                    con = sqlite3.connect("fplbot.db")
+                    change_data_old_temp = pd.read_sql_query("SELECT * FROM changes", con)
+                    gw_name = "changesgw{:02d}".format(week['id'])
+                    change_data_old_temp.to_sql(gw_name, con, if_exists="append")
+                    cur = con.cursor()
+                    cur.execute("DELETE FROM changes")
+                    con.commit()
+                    con.close()
+                except Exception as e:
+                    pass
 
 
 @tasks.loop(seconds=10)

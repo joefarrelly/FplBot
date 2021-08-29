@@ -56,39 +56,21 @@ def lookup_event_clock(fixture_id):
 
 def lookup_price_changes(player_id, guild):
     con = sqlite3.connect("fplbot.db")
-    tables_old = pd.read_sql_query("SELECT tbl_name FROM sqlite_master WHERE type='table' AND name LIKE 'changes%'", con)
-    # tables = tables_old.values
-    # player = pd.read_sql_query("SELECT web_name FROM players WHERE id=?", con, params=[player_id])
-    # player = pd.read_sql_query("SELECT web_name FROM changesgw1 WHERE id=?", con, params=[player_id])
-    # con.close()
+    tables_old = pd.read_sql_query("SELECT tbl_name FROM sqlite_master WHERE type='table' AND name LIKE 'changes%' ORDER BY tbl_name", con)
     result = []
-    for table in tables_old.values:
-        # print(table[0])
-        # sql = "SELECT web_name FROM {} WHERE id={}".format(table[0], player_id)
-        # print(sql)
+    tables = tables_old.values.tolist()
+    tables.append(tables.pop(tables.index(['changesgw01'])))
+    for table in tables:
         sql = "SELECT cost_change_event FROM {} WHERE id=?".format(table[0])
-        # temp = pd.read_sql_query("SELECT web_name FROM ? WHERE id=?", con, params=[table[0], player_id])
         temp = pd.read_sql_query(sql, con, params=[player_id])
-        # sql = "SELECT web_name FROM {} WHERE id={}".format(table, player_id)
-        # temp = pd.read_sql_query(sql, con)
-        # print(temp)
-        # if table[0] == 'changes':
-        #     table[0] == 'changesgw' + str(len(tables_old.values))
-        # print(len(tables_old.values))
         if not table[0][7:]:
             table[0] = 'changesgw' + str(format(len(tables_old.values), '02d'))
-            # print("here")
         if not temp.empty:
-            # print(temp.values[0])
-            # print([table[0][7:], temp['cost_change_event'][0]])
             result.append([table[0][7:], temp['cost_change_event'][0]])
         else:
-            # print([table[0][7:], 0])
             result.append([table[0][7:], 0])
     final_result = '|'
-    for item in result:
+    for item in reversed(result):
         final_result = final_result + ' {} {} |'.format(item[0].upper(), item[1])
-    # print(player)
     con.close()
-    # return tables_old
     return final_result
