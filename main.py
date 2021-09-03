@@ -20,6 +20,7 @@ env = environ.Env()
 environ.Env.read_env()
 
 tweet_id = ''
+gameweek = 0
 
 
 TOKEN = env("DISCORD_TOKEN")
@@ -50,21 +51,80 @@ async def on_command_error(ctx, error):
     await ctx.send(error)
 
 
+@bot.command(name='test')
+async def test(ctx):
+    gameweek1 = 2
+    response = requests.get('https://fantasy.premierleague.com/api/event/{}/live/'.format(gameweek1))
+    players = []
+    for player in response.json()['elements']:
+        player['stats'] = json.dumps(player['stats'])
+        player['explain'] = json.dumps(player['explain'])
+        players.append(player)
+    players_df = pd.DataFrame(players)
+    con = sqlite3.connect("fplbot.db")
+    players_df.to_sql("live", con, if_exists='replace', index=False)
+    con.close()
+
+
 @bot.command(name='db')
 async def db(ctx):
     print("scanning123")
     gameweek_response = requests.get('https://fantasy.premierleague.com/api/bootstrap-static/')
     for event in gameweek_response.json()['events']:
         if event['is_current']:
-            gameweek = event['id']
-            break
-    response = requests.get('https://fantasy.premierleague.com/api/event/{}/live/'.format(gameweek))
-    con = sqlite3.connect("fplbot.db")
-    fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE event=?", con, params=[gameweek])
-    con.close()
-    for player in response.json()['elements']:
-        print(player['explain'][0]['fixture'])
-    print(fixture_data)
+            global gameweek
+            print(gameweek)
+            if gameweek != event['id']:
+                # global gameweek
+                gameweek = event['id']
+                response = requests.get('https://fantasy.premierleague.com/api/event/{}/live/'.format(gameweek))
+                players = []
+                for player in response.json()['elements']:
+                    player['stats'] = json.dumps(player['stats'])
+                    player['explain'] = json.dumps(player['explain'])
+                    players.append(player)
+                players_df = pd.DataFrame(players)
+                con = sqlite3.connect("fplbot.db")
+                players_df.to_sql("live", con, if_exists='replace', index=False)
+                con.close()
+            else:
+                con = sqlite3.connect("fplbot.db")
+                fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE event=?", con, params=[gameweek])
+                players_data = pd.read_sql_query("SELECT * FROM live", con, index_col='id')
+                con.close()
+                response = requests.get('https://fantasy.premierleague.com/api/event/{}/live/'.format(gameweek))
+                players = []
+                # print(players_data.loc[[15]])
+                for player_new in response.json()['elements']:
+                    # print(players_data.iloc[1])
+                    player_old = json.loads(players_data.loc[player_new['id']].explain)
+                    # player_old = players_data.loc[player_new['id']]
+                    if len(player_new['explain'][0]['stats']) == 1:
+                        continue
+                    else:
+                        for item in player_new['explain'][0]['stats'][1:]:
+                            # print(item['identifier'])
+                            if not any(d['identifier'] == item['identifier'] for d in player_old[0]['stats']):
+                                print("new event happened!")
+                                print(item, player_new['id'], player_new['explain'][0]['fixture'])
+                            elif not any(d['identifier'] == item['identifier'] and d['value'] == item['value'] for d in player_old[0]['stats']):
+                                print("additonal of the same event happened")
+                                print(item, player_new['id'], player_new['explain'][0]['fixture'])
+                            else:
+                                print("no new events")
+                                # print(item)
+
+                    player_new['stats'] = json.dumps(player_new['stats'])
+                    player_new['explain'] = json.dumps(player_new['explain'])
+                    players.append(player_new)
+                players_df = pd.DataFrame(players)
+                con = sqlite3.connect("fplbot.db")
+                players_df.to_sql("live", con, if_exists='replace', index=False)
+                con.close()
+            # pass
+            # break
+
+    # print(fixture_data)
     #     change_data = []
     #     new_change_data = []
     #     if not game['started']:
@@ -131,17 +191,6 @@ async def db(ctx):
     #                     embed.add_field(name=format_identifier(value[1]), value=player_team, inline=False)
     #                     embed.add_field(name='\u200b', value=event_info)
     #                     await channel.send(embed=embed)
-    #                 else:
-    #                     print(value)
-    #         game['stats'] = json.dumps(game['stats'])
-    #         fixture_data_new.append(game)
-    #     else:
-    #         game['stats'] = json.dumps(game['stats'])
-    #         fixture_data_new.append(game)
-    # fixture_data_df = pd.DataFrame(fixture_data_new)
-    # con = sqlite3.connect("fplbot.db")
-    # fixture_data_df.to_sql("fixtures", con, if_exists="replace")
-    # con.close()
 
 
 @bot.command(name='sync', help='Run once to make the bot work')
@@ -429,6 +478,41 @@ def team_fixtures_by_id(team_id):
                 elif team_id == fixture[12]:
                     fixtures.append([fixture[2], teams[fixture[10]], 'H'])
     return(fixtures)
+
+
+@bot.command(name='hwang')
+async def hwang(ctx):
+    con = sqlite3.connect("fplbot.db")
+    changes = pd.read_sql_query("SELECT * FROM changes", con)
+    con.close()
+    up_change = '```\n'
+    down_change = '```\n'
+    for player in changes.values.tolist():
+        # current gameweeks code
+        print(player[4], player[36])
+        if player[4] > 0:
+            up_change += '{} {}\n'.format(player[4], player[36])
+        elif player[4] < 0:
+            down_change += '{} {}\n'.format(player[4], player[36])
+        else:
+            print("this should never print ever")
+        # old gameweeks code
+        # print(player[5], player[37])
+        # if player[5] > 0:
+        #     up_change += '{} {}\n'.format(player[5], player[37])
+        # elif player[5] < 0:
+        #     down_change += '{} {}\n'.format(player[5], player[37])
+        # else:
+        #     print("this should never print ever")
+    up_change += '```'
+    down_change += '```'
+    # embed = discord.Embed()
+    # embed.add_field(name='Price Rises', value=up_change)
+    # embed.add_field(name='Price Falls', value=down_change)
+    embed = discord.Embed(title='Price Rises', description=up_change)
+    await ctx.send(embed=embed)
+    embed = discord.Embed(title='Price Falls', description=down_change)
+    await ctx.send(embed=embed)
 
 
 @bot.command(name='table')
