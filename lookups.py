@@ -54,6 +54,15 @@ def lookup_event_clock(fixture_id):
     return response.json()['clock']['label']
 
 
+def lookup_event_score(fixture_id):
+    url = 'https://footballapi.pulselive.com/football/fixtures/{}'.format(fixture_id)
+    headers = {
+        'Origin': 'https://www.premierleague.com'
+    }
+    response = requests.get(url, headers=headers)
+    return [response.json()['teams'][0]['score'], response.json()['teams'][1]['score']]
+
+
 def lookup_price_changes(player_id, guild):
     con = sqlite3.connect("fplbot.db")
     tables_old = pd.read_sql_query("SELECT tbl_name FROM sqlite_master WHERE type='table' AND name LIKE 'changes%' ORDER BY tbl_name", con)
@@ -74,3 +83,14 @@ def lookup_price_changes(player_id, guild):
         final_result = final_result + ' {} {} |'.format(item[0].upper(), item[1])
     con.close()
     return final_result
+
+
+def get_team_dict():
+    con = sqlite3.connect("fplbot.db")
+    team_data_old = pd.read_sql_query("SELECT * FROM teams", con)
+    team_data = team_data_old.to_dict(orient='index')
+    con.close()
+    result = {}
+    for team in team_data:
+        result[team_data[team]['id']] = {'name': team_data[team]['name'], 'short_name': team_data[team]['short_name'], 'code': team_data[team]['code']}
+    return result

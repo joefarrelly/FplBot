@@ -20,4 +20,6 @@ def format_identifier(identifier):
         result = 'Save!'
     elif identifier == 'bonus':
         result = 'Bonus Points'
+    else:
+        result = identifier
     return result
