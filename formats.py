@@ -1,7 +1,6 @@
 
 
 def format_identifier(identifier):
-    # identifier = (identifier.replace('_', ' ')).title()
     if identifier == 'goals_scored':
         result = 'Goal!'
     elif identifier == 'assists':

@@ -68,7 +68,9 @@ def lookup_price_changes(player_id, guild):
     tables_old = pd.read_sql_query("SELECT tbl_name FROM sqlite_master WHERE type='table' AND name LIKE 'changes%' ORDER BY tbl_name", con)
     result = []
     tables = tables_old.values.tolist()
-    tables.append(tables.pop(tables.index(['changesgw01'])))
+    # print(tables)
+    tables.append(tables.pop(tables.index(['changes'])))
+    # print(tables)
     for table in tables:
         sql = "SELECT cost_change_event FROM {} WHERE id=?".format(table[0])
         temp = pd.read_sql_query(sql, con, params=[player_id])
@@ -79,7 +81,8 @@ def lookup_price_changes(player_id, guild):
         else:
             result.append([table[0][7:], 0])
     final_result = '|'
-    for item in reversed(result):
+    for item in result:
+    # for item in reversed(result):
         final_result = final_result + ' {} {} |'.format(item[0].upper(), item[1])
     con.close()
     return final_result
@@ -94,3 +97,24 @@ def get_team_dict():
     for team in team_data:
         result[team_data[team]['id']] = {'name': team_data[team]['name'], 'short_name': team_data[team]['short_name'], 'code': team_data[team]['code']}
     return result
+
+
+def lookup_team_fixtures(team_id):
+    fixtures = []
+    teams = {}
+    con = sqlite3.connect("fplbot.db")
+    team_data_temp = pd.read_sql_query("SELECT * FROM teams", con)
+    fixture_data_temp = pd.read_sql_query("SELECT * FROM fixtures", con)
+    con.close()
+    team_data = team_data_temp.values.tolist()
+    fixture_data = fixture_data_temp.values.tolist()
+    for team in team_data:
+        teams[team[4]] = team[6]
+    if team_id > 0 and team_id < 21:
+        for fixture in fixture_data:
+            if not fixture[3]:
+                if team_id == fixture[10]:
+                    fixtures.append([fixture[2], teams[fixture[12]], 'A'])
+                elif team_id == fixture[12]:
+                    fixtures.append([fixture[2], teams[fixture[10]], 'H'])
+    return fixtures

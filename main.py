@@ -1,5 +1,4 @@
 import requests
-# from bs4 import BeautifulSoup
 from discord.ext import commands, tasks
 import discord
 from selenium import webdriver
@@ -11,7 +10,7 @@ import datetime
 import pytz
 import json
 import sqlite3
-from lookups import lookup_player, lookup_team, lookup_player_group, lookup_event_clock, lookup_price_changes, get_team_dict, lookup_event_score
+from lookups import lookup_player, lookup_team, lookup_player_group, lookup_event_clock, lookup_price_changes, get_team_dict, lookup_event_score, lookup_team_fixtures
 from formats import format_identifier
 import numpy
 import math
@@ -19,7 +18,7 @@ import math
 env = environ.Env()
 environ.Env.read_env()
 
-tweet_id = ''
+# tweet_id = ''
 gameweek = 0
 
 
@@ -51,7 +50,7 @@ async def on_command_error(ctx, error):
     await ctx.send(error)
 
 
-@bot.command(name='test')
+@bot.command(name='test', help='IGNORE THIS COMMAND')
 async def test(ctx):
     gameweek1 = 2
     response = requests.get('https://fantasy.premierleague.com/api/event/{}/live/'.format(gameweek1))
@@ -66,7 +65,7 @@ async def test(ctx):
     con.close()
 
 
-@bot.command(name='db')
+@bot.command(name='db', help='IGNORE THIS COMMAND')
 async def db(ctx):
     print("scanning123")
     start_time = time.time()
@@ -131,7 +130,8 @@ async def db(ctx):
 @bot.command(name='sync', help='Run once to make the bot work')
 async def sync(ctx):
     if extra:
-        if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
+        if secrets.scrape.is_running() and spam.is_running() and live_data.is_running() and update_table.is_running():
+        # if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
             await ctx.send("Already synced")
         else:
             for channel in ctx.guild.channels:
@@ -140,39 +140,51 @@ async def sync(ctx):
                         secrets.scrape.start()
                     if not spam.is_running():
                         spam.start(channel)
-                    if not twitter_bot.is_running():
-                        twitter_bot.start(ctx, channel)
+                    # if not twitter_bot.is_running():
+                    #     twitter_bot.start(ctx, channel)
                     if not live_data.is_running():
                         live_data.start(channel, ctx.guild)
                     if not update_table.is_running():
                         update_table.start()
-                    if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
+                    if secrets.scrape.is_running() and spam.is_running() and live_data.is_running() and update_table.is_running():
+                    # if secrets.scrape.is_running() and spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
                         await ctx.send("Sync successful")
-        if not secrets.scrape.is_running() or not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running() or not update_table.is_running():
+        if not secrets.scrape.is_running() or not spam.is_running() or not live_data.is_running() or not update_table.is_running():
+        # if not secrets.scrape.is_running() or not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running() or not update_table.is_running():
             await ctx.send("Error with sync, make sure there is a text channel called fpl-updates")
     else:
-        if spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
+        if spam.is_running() and live_data.is_running() and update_table.is_running():
+        # if spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
             await ctx.send("Already synced")
         else:
             for channel in ctx.guild.channels:
                 if channel.name == env("CHANNEL"):
                     if not spam.is_running():
                         spam.start(channel)
-                    if not twitter_bot.is_running():
-                        twitter_bot.start(ctx, channel)
+                    # if not twitter_bot.is_running():
+                    #     twitter_bot.start(ctx, channel)
                     if not live_data.is_running():
                         live_data.start(channel, ctx.guild)
                     if not update_table.is_running():
                         update_table.start()
-                    if spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
+                    if spam.is_running() and live_data.is_running() and update_table.is_running():
+                    # if spam.is_running() and twitter_bot.is_running() and live_data.is_running() and update_table.is_running():
                         await ctx.send("Sync successful")
-        if not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running() or not update_table.is_running():
+        if not spam.is_running() or not live_data.is_running() or not update_table.is_running():
+        # if not spam.is_running() or not twitter_bot.is_running() or not live_data.is_running() or not update_table.is_running():
             await ctx.send("Error with sync, make sure there is a text channel called fpl-updates")
 
 
 @tasks.loop(seconds=60 * 5)
 async def update_table():
+    fixture_data_old = []
+    fixture_response = requests.get('https://fantasy.premierleague.com/api/fixtures/')
+    for fixture in fixture_response.json():
+        fixture['stats'] = json.dumps(fixture['stats'])
+        fixture_data_old.append(fixture)
+    fixture_data_old_df = pd.DataFrame(fixture_data_old)
     con = sqlite3.connect("fplbot.db")
+    fixture_data_old_df.to_sql("fixtures", con, if_exists="replace")
     fixture_data = pd.read_sql_query("SELECT * FROM fixtures WHERE finished=1", con)
     con.close()
     teams = dict([(x, []) for x in range(1, 21)])
@@ -311,7 +323,11 @@ async def live_data(channel, guild):
                 teams = get_team_dict()
                 for player_new in response.json()['elements']:
                     fixture = fixture_data.loc[player_new['explain'][0]['fixture']]
-                    player_old = json.loads(players_data.loc[player_new['id']].explain)
+                    try:
+                        player_old = json.loads(players_data.loc[player_new['id']].explain)
+                    except KeyError as e:
+                        print("Key Error: {}".format(e))
+                        continue
                     if len(player_new['explain'][0]['stats']) == 1:
                         pass
                     else:
@@ -331,7 +347,7 @@ async def live_data(channel, guild):
                                 embed.set_thumbnail(url=image)
                                 embed.add_field(name=format_identifier(item['identifier']), value=player_team, inline=False)
                                 embed.add_field(name='\u200b', value=event_info)
-                                await ctx.send(embed=embed)
+                                await channel.send(embed=embed)
 
                     player_new['stats'] = json.dumps(player_new['stats'])
                     player_new['explain'] = json.dumps(player_new['explain'])
@@ -439,54 +455,32 @@ async def live_data(channel, guild):
 ############################################
 
 
-@tasks.loop(seconds=10)
-async def twitter_bot(ctx, channel):
-    global tweet_id
-    tweet_data = []
-    headers = {
-        'Authorization': 'Bearer ' + BEARER
-    }
-    if tweet_id:
-        url = 'https://api.twitter.com/2/users/761568335138058240/tweets?max_results=5&since_id=' + tweet_id
-    else:
-        url = 'https://api.twitter.com/2/users/761568335138058240/tweets?max_results=5'
-    try:
-        response = requests.get(url, headers=headers)
-        print("twitter working")
-        print(response)
-        if response.json()['meta']['result_count'] != 0:
-            tweet_id = response.json()['data'][0]['id']
-            for tweet in response.json()['data']:
-                if 'Goal' in tweet['text'] and 'Assist' in tweet['text']:
-                    embed = discord.Embed(description=tweet['text'])
-                    await channel.send(embed=embed)
-    except Exception as e:
-        print(ctx.send("Error connecting to twitter API: {}".format(e)))
+# @tasks.loop(seconds=10)
+# async def twitter_bot(ctx, channel):
+#     global tweet_id
+#     tweet_data = []
+#     headers = {
+#         'Authorization': 'Bearer ' + BEARER
+#     }
+#     if tweet_id:
+#         url = 'https://api.twitter.com/2/users/761568335138058240/tweets?max_results=5&since_id=' + tweet_id
+#     else:
+#         url = 'https://api.twitter.com/2/users/761568335138058240/tweets?max_results=5'
+#     try:
+#         response = requests.get(url, headers=headers)
+#         print("twitter working")
+#         print(response)
+#         if response.json()['meta']['result_count'] != 0:
+#             tweet_id = response.json()['data'][0]['id']
+#             for tweet in response.json()['data']:
+#                 if 'Goal' in tweet['text'] and 'Assist' in tweet['text']:
+#                     embed = discord.Embed(description=tweet['text'])
+#                     await channel.send(embed=embed)
+#     except Exception as e:
+#         await ctx.send("Error connecting to twitter API: {}".format(e))
 
 
-def team_fixtures_by_id(team_id):
-    fixtures = []
-    teams = {}
-    con = sqlite3.connect("fplbot.db")
-    team_data_temp = pd.read_sql_query("SELECT * FROM teams", con)
-    fixture_data_temp = pd.read_sql_query("SELECT * FROM fixtures", con)
-    print(fixture_data_temp)
-    con.close()
-    team_data = team_data_temp.values.tolist()
-    fixture_data = fixture_data_temp.values.tolist()
-    for team in team_data:
-        teams[team[4]] = team[6]
-    if team_id > 0 and team_id < 21:
-        for fixture in fixture_data:
-            if not fixture[3]:
-                if team_id == fixture[10]:
-                    fixtures.append([fixture[2], teams[fixture[12]], 'A'])
-                elif team_id == fixture[12]:
-                    fixtures.append([fixture[2], teams[fixture[10]], 'H'])
-    return(fixtures)
-
-
-@bot.command(name='hwang')
+@bot.command(name='changes', help='Show all price changes from the current gameweek')
 async def hwang(ctx):
     con = sqlite3.connect("fplbot.db")
     changes = pd.read_sql_query("SELECT * FROM changes", con)
@@ -495,7 +489,7 @@ async def hwang(ctx):
     down_change = '```\n'
     for player in changes.values.tolist():
         # current gameweeks code
-        print(player[4], player[36])
+        # print(player[4], player[36])
         if player[4] > 0:
             up_change += '{} {}\n'.format(player[4], player[36])
         elif player[4] < 0:
@@ -521,7 +515,7 @@ async def hwang(ctx):
     await ctx.send(embed=embed)
 
 
-@bot.command(name='table')
+@bot.command(name='table', help='Show the current league standings')
 async def table(ctx):
     try:
         con = sqlite3.connect("fplbot.db")
@@ -583,7 +577,7 @@ async def search(ctx, *, player_search):
                 price_changes_name = 'Price Changes ({})'.format(secret_price_prediction(player[36]))
             else:
                 price_changes_name = 'Price Changes'
-            player_fixtures = team_fixtures_by_id(player[27])
+            player_fixtures = lookup_team_fixtures(player[27])
             fixtures = "```\n"
             for x in range(0, 5):
                 fixtures += "GW-{:02d}: {} ({})\n".format(player_fixtures[x][0], player_fixtures[x][1], player_fixtures[x][2])
@@ -646,7 +640,7 @@ async def team(ctx, *, team_search):
         await ctx.send("Team not found")
 
 
-@bot.command(name='dump', help='Dumps all FPL API data into sqlite db')
+@bot.command(name='dump', help='IGNORE THIS COMMAND')
 async def dump_test(ctx):
     team_data = []
     fixture_data = []
