@@ -50,7 +50,7 @@ async def on_command_error(ctx, error):
     await ctx.send(error)
 
 
-@bot.command(name='test', help='IGNORE THIS COMMAND')
+@bot.command(name='test', help='IGNORE THIS COMMAND', hidden=True)
 async def test(ctx):
     gameweek1 = 2
     response = requests.get('https://fantasy.premierleague.com/api/event/{}/live/'.format(gameweek1))
@@ -65,7 +65,7 @@ async def test(ctx):
     con.close()
 
 
-@bot.command(name='db', help='IGNORE THIS COMMAND')
+@bot.command(name='db', help='IGNORE THIS COMMAND', hidden=True)
 async def db(ctx):
     print("scanning123")
     start_time = time.time()
@@ -248,7 +248,8 @@ async def spam(channel):
                 if player[2] == change_data_old[index - offset][2] and player[3] == change_data_old[index - offset][3]:
                     continue
                 else:
-                    offset += 1
+                    if player[3] == 1 or player[3] == -1:
+                        offset += 1
                     diff_change_data.append(player)
             except IndexError:
                 diff_change_data.append(player)
@@ -640,7 +641,7 @@ async def team(ctx, *, team_search):
         await ctx.send("Team not found")
 
 
-@bot.command(name='dump', help='IGNORE THIS COMMAND')
+@bot.command(name='dump', help='IGNORE THIS COMMAND', hidden=True)
 async def dump_test(ctx):
     team_data = []
     fixture_data = []
