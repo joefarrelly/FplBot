@@ -23,7 +23,7 @@ gameweek = 0
 
 
 TOKEN = env("DISCORD_TOKEN")
-BEARER = env("TWITTER_BEARER")
+# BEARER = env("TWITTER_BEARER")
 print(env("COMMAND_PREFIX"))
 
 activity = discord.Game(name="{}sync to setup".format(env("COMMAND_PREFIX")))
@@ -323,11 +323,15 @@ async def live_data(channel, guild):
                 players = []
                 teams = get_team_dict()
                 for player_new in response.json()['elements']:
-                    fixture = fixture_data.loc[player_new['explain'][0]['fixture']]
+                    try:
+                        fixture = fixture_data.loc[player_new['explain'][0]['fixture']]
+                    except IndexError as e:
+                        # print("IndexError: {}".format(e))
+                        continue
                     try:
                         player_old = json.loads(players_data.loc[player_new['id']].explain)
                     except KeyError as e:
-                        print("Key Error: {}".format(e))
+                        # print("Key Error: {}".format(e))
                         continue
                     if len(player_new['explain'][0]['stats']) == 1:
                         pass
@@ -581,7 +585,8 @@ async def search(ctx, *, player_search):
             player_fixtures = lookup_team_fixtures(player[27])
             fixtures = "```\n"
             for x in range(0, 5):
-                fixtures += "GW-{:02d}: {} ({})\n".format(player_fixtures[x][0], player_fixtures[x][1], player_fixtures[x][2])
+                # print(player_fixtures[x])
+                fixtures += "GW-{:02d}: {} ({})\n".format(int(player_fixtures[x][0]), player_fixtures[x][1], player_fixtures[x][2])
             fixtures += "```"
             changes = "```\n" + lookup_price_changes(player[15], ctx.guild) + "\n```"
             embed = discord.Embed(title=title)
@@ -613,26 +618,27 @@ async def team(ctx, *, team_search):
             image = "https://resources.premierleague.com/premierleague/badges/50/t{}.png".format(team[1])
     if found:
         for fixture in fixture_data:
-            if not fixture[3]:
-                if team_search_id == fixture[10]:
-                    fixtures += "GW-{:02d}: {} (A)\n".format(fixture[2], teams[fixture[12]] + ' ' * (14 - len(teams[fixture[12]])))
-                elif team_search_id == fixture[12]:
-                    fixtures += "GW-{:02d}: {} (H)\n".format(fixture[2], teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])))
-            else:
-                if team_search_id == fixture[10] or team_search_id == fixture[12]:
-                    if fixture[11] > fixture[13]:
-                        win = fixture[10]
-                    elif fixture[11] < fixture[13]:
-                        win = fixture[12]
-                    else:
-                        win = 0
-                    if win == 0:
-                        win_loss_emoji = '\U000026AA'
-                    elif team_search_id == win:
-                        win_loss_emoji = '\U0001F7E2'
-                    else:
-                        win_loss_emoji = '\U0001F534'
-                    fixtures += "GW-{:02d}: {} {} - {} {} {}\n".format(fixture[2], ' ' * (14 - len(teams[fixture[12]])) + teams[fixture[12]], int(fixture[13]), int(fixture[11]), teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])), win_loss_emoji)
+            if not pd.isna(fixture[2]):
+                if not fixture[3]:
+                    if team_search_id == fixture[10]:
+                        fixtures += "GW-{:02d}: {} (A)\n".format(int(fixture[2]), teams[fixture[12]] + ' ' * (14 - len(teams[fixture[12]])))
+                    elif team_search_id == fixture[12]:
+                        fixtures += "GW-{:02d}: {} (H)\n".format(int(fixture[2]), teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])))
+                else:
+                    if team_search_id == fixture[10] or team_search_id == fixture[12]:
+                        if fixture[11] > fixture[13]:
+                            win = fixture[10]
+                        elif fixture[11] < fixture[13]:
+                            win = fixture[12]
+                        else:
+                            win = 0
+                        if win == 0:
+                            win_loss_emoji = '\U000026AA'
+                        elif team_search_id == win:
+                            win_loss_emoji = '\U0001F7E2'
+                        else:
+                            win_loss_emoji = '\U0001F534'
+                        fixtures += "GW-{:02d}: {} {} - {} {} {}\n".format(int(fixture[2]), ' ' * (14 - len(teams[fixture[12]])) + teams[fixture[12]], int(fixture[13]), int(fixture[11]), teams[fixture[10]] + ' ' * (14 - len(teams[fixture[10]])), win_loss_emoji)
         fixtures += "```"
         embed = discord.Embed(title='{} Fixtures'.format(teams[team_search_id]), description=fixtures)
         embed.set_thumbnail(url=image)

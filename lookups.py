@@ -113,8 +113,11 @@ def lookup_team_fixtures(team_id):
     if team_id > 0 and team_id < 21:
         for fixture in fixture_data:
             if not fixture[3]:
-                if team_id == fixture[10]:
-                    fixtures.append([fixture[2], teams[fixture[12]], 'A'])
-                elif team_id == fixture[12]:
-                    fixtures.append([fixture[2], teams[fixture[10]], 'H'])
+                if not pd.isna(fixture[2]):
+                    if team_id == fixture[10]:
+                        print(fixture)
+                        fixtures.append([fixture[2], teams[fixture[12]], 'A'])
+                    elif team_id == fixture[12]:
+                        print(fixture)
+                        fixtures.append([fixture[2], teams[fixture[10]], 'H'])
     return fixtures
